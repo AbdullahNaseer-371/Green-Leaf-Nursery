@@ -62,6 +62,7 @@ Test configuration:
 | GET `/api/sales/report` |         15 ms |        28 ms |        45 ms |      0.00% |
 | GET `/api/sales/report` |         15 ms	|        28 ms |        45 ms	|       0.00%|
 | POST `/api/user/login`  |         18 ms	|        32 ms |        50 ms	|       0.00%|
+| POST `/api/plants`  |         20 ms	|        35 ms |        55 ms	|       0.00%|
 
 The p95 value represents the response time within which approximately 95% of requests completed during the load test.
 
