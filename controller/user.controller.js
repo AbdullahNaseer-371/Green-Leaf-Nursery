@@ -60,37 +60,22 @@ const loginUser = asyncHandler(async (req, res) => {
 
 
 
-const refreshAccessToken = asyncHandler(
-    async (req, res) => {
+const refreshAccessToken = asyncHandler(async (req, res) => {
+    const { refreshToken } = req.body;
 
-        const {
-            refreshToken
-        } = req.body;
+    const result = await userService.refreshAccessToken(refreshToken);
 
-
-        const result =
-            await userService.refreshAccessToken(
-                refreshToken
-            );
-
-
-        return res
-            .status(200)
-            .json(
-                new ApiResponse(
-                    200,
-                    {
-                        accessToken:
-                            result.accessToken,
-
-                        refreshToken:
-                            result.refreshToken
-                    },
-                    result.message
-                )
-            );
-    }
-);
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {
+                accessToken: result.accessToken,
+                refreshToken: result.refreshToken
+            },
+            result.message
+        )
+    );
+});
 
 
 const logoutUser = asyncHandler(

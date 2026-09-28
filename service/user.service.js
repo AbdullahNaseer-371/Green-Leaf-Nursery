@@ -182,54 +182,30 @@ const loginUser = async (userName, password) => {
 
 
 const refreshAccessToken = async (refreshToken) => {
-
     if (!refreshToken) {
-        throw new ApiError(
-            400,
-            "Refresh token is required."
-        );
+        throw new ApiError(400, "Refresh token is required.");
     }
-
 
     let decoded;
 
     try {
-        decoded = verifyRefreshToken(
-            refreshToken
-        );
+        decoded = verifyRefreshToken(refreshToken);
     } catch (error) {
-        throw new ApiError(
-            403,
-            "Invalid or expired refresh token."
-        );
+        throw new ApiError(403, "Invalid or expired refresh token.");
     }
 
-
-    const user = await User.findById(
-        decoded.id
-    );
-
+    const user = await User.findById(decoded.id);
 
     if (!user) {
-        throw new ApiError(
-            401,
-            "User account no longer exists."
-        );
+        throw new ApiError(401, "User account no longer exists.");
     }
 
-
-
-    const tokenExists =
-        user.refreshTokens.includes(
-            refreshToken
-        );
-
+    // Check whether the refresh token is still active
+    const tokenExists = user.refreshTokens.includes(refreshToken);
 
     if (!tokenExists) {
-
-
+        // Token reuse detected -> revoke all active refresh tokens
         user.refreshTokens = [];
-
         await user.save();
 
         throw new ApiError(
@@ -238,36 +214,26 @@ const refreshAccessToken = async (refreshToken) => {
         );
     }
 
-
-    // Remove old refresh token
-    user.refreshTokens =
-        user.refreshTokens.filter(
-            (token) => token !== refreshToken
-        );
-
-
-    // Generate new tokens
-    const newAccessToken =
-        generateToken({
-            id: user._id,
-            role: user.role
-        });
-
-
-    const newRefreshToken =
-        generateRefreshToken({
-            id: user._id
-        });
-
-
-    
-    user.refreshTokens.push(
-        newRefreshToken
+    // Remove the old refresh token
+    user.refreshTokens = user.refreshTokens.filter(
+        (token) => token !== refreshToken
     );
 
+    // Generate new access token
+    const newAccessToken = generateToken({
+        id: user._id,
+        role: user.role
+    });
+
+    // Generate new refresh token
+    const newRefreshToken = generateRefreshToken({
+        id: user._id
+    });
+
+    // Store the new refresh token
+    user.refreshTokens.push(newRefreshToken);
 
     await user.save();
-
 
     return {
         accessToken: newAccessToken,

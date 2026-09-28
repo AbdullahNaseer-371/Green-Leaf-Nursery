@@ -65,53 +65,53 @@ const authorize = (requiredPermission) => {
 };
 
 
-const handleTokenRotation = asyncHandler(async (req, res, next) => {
-    const { refreshToken } = req.body;
-    if (!refreshToken) {
-        throw new ApiError(400, 'Refresh token required for session renewal');
-    }
+// const handleTokenRotation = asyncHandler(async (req, res, next) => {
+//     const { refreshToken } = req.body;
+//     if (!refreshToken) {
+//         throw new ApiError(400, 'Refresh token required for session renewal');
+//     }
 
-    try {
-        const decoded = verifyToken(refreshToken);
-        const user = await User.findById(decoded.id);
+//     try {
+//         const decoded = verifyToken(refreshToken);
+//         const user = await User.findById(decoded.id);
 
        
-        if (!user || !isTokenActive(user.refreshTokens, refreshToken)) {
-            if (user) {
-                user.refreshTokens = [];
-                await user.save();
-            }
-            throw new ApiError(403, 'Compromised session fingerprint detected. Full re-authentication forced.');
-        }
+//         if (!user || !isTokenActive(user.refreshTokens, refreshToken)) {
+//             if (user) {
+//                 user.refreshTokens = [];
+//                 await user.save();
+//             }
+//             throw new ApiError(403, 'Compromised session fingerprint detected. Full re-authentication forced.');
+//         }
 
         
-        user.refreshTokens = user.refreshTokens.filter((token) => token !== refreshToken);
+//         user.refreshTokens = user.refreshTokens.filter((token) => token !== refreshToken);
 
         
-        const payload = { id: user._id, role: user.role };
-        const newAccessToken = generateAccessToken(payload);
-        const newRefreshToken = generateRefreshToken({ id: user._id });
+//         const payload = { id: user._id, role: user.role };
+//         const newAccessToken = generateAccessToken(payload);
+//         const newRefreshToken = generateRefreshToken({ id: user._id });
 
-        user.refreshTokens.push(newRefreshToken);
-        await user.save();
+//         user.refreshTokens.push(newRefreshToken);
+//         await user.save();
 
-        res.status(200).json({
-            success: true,
-            statusCode: 200,
-            message: 'Tokens rotated successfully',
-            data: {
-                accessToken: newAccessToken,
-                refreshToken: newRefreshToken
-            }
-        });
-    } catch (err) {
-        if (err instanceof ApiError) throw err;
-        throw new ApiError(403, 'Invalid or expired refresh token');
-    }
-});
+//         res.status(200).json({
+//             success: true,
+//             statusCode: 200,
+//             message: 'Tokens rotated successfully',
+//             data: {
+//                 accessToken: newAccessToken,
+//                 refreshToken: newRefreshToken
+//             }
+//         });
+//     } catch (err) {
+//         if (err instanceof ApiError) throw err;
+//         throw new ApiError(403, 'Invalid or expired refresh token');
+//     }
+// });
 
 module.exports = {
     authenticate,
     authorize,
-    handleTokenRotation
+    // handleTokenRotation
 };
