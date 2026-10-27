@@ -30,7 +30,7 @@ jobs:
         run: npm test
 
       - name: Check backend syntax
-        run: node --check server.js
+        run: node --check app.js
 
   deploy:
     name: Deploy to Render
