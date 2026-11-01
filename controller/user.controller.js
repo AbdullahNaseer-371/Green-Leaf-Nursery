@@ -30,14 +30,14 @@ const registerUser = asyncHandler(async (req, res) => {
 const loginUser = asyncHandler(async (req, res) => {
 
     const {
-        userName,
+        email,
         password
     } = req.body;
 
 
     const result =
         await userService.loginUser(
-            userName,
+            email,
             password
         );
 

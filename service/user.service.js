@@ -35,6 +35,7 @@ const registerUser = async (userData) => {
 
     const {
         userName,
+        email,
         password,
         role
     } = userData;
@@ -49,7 +50,13 @@ const registerUser = async (userData) => {
     }
 
 
-    // Validate password
+    // Validate email
+    if (!email || !email.trim()) {
+        throw new ApiError(
+            400,
+            "Email is required."
+        );
+    }
     if (!password) {
         throw new ApiError(
             400,
@@ -68,14 +75,14 @@ const registerUser = async (userData) => {
 
     // Check existing username
     const existingUser = await User.findOne({
-        userName: userName.trim()
+        email: email.trim()
     });
 
 
     if (existingUser) {
         throw new ApiError(
             409,
-            "Username already exists."
+            "Email already exists."
         );
     }
 
@@ -87,6 +94,7 @@ const registerUser = async (userData) => {
 
     const user = await User.create({
         userName: userName.trim(),
+        email: email.trim(),
         password: hashedPassword,
         role: role || "Employee"
     });
@@ -104,26 +112,26 @@ const registerUser = async (userData) => {
 
 
 
-const loginUser = async (userName, password) => {
+const loginUser = async (email, password) => {
 
-    if (!userName || !password) {
+    if (!email || !password) {
         throw new ApiError(
             400,
-            "Username and password are required."
+            "Email and password are required."
         );
     }
 
 
     // Find user
     const user = await User.findOne({
-        userName: userName.trim()
+        email: email.trim()
     });
 
 
     if (!user) {
         throw new ApiError(
             401,
-            "Invalid username or password."
+            "Invalid email or password."
         );
     }
 
@@ -167,7 +175,7 @@ const loginUser = async (userName, password) => {
     return {
         user: {
             _id: user._id,
-            userName: user.userName,
+            email: user.email,
             role: user.role
         },
 
