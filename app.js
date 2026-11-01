@@ -1,7 +1,7 @@
 const express = require("express");
 
 const { connectDB } = require("./config/db.js");
-const { cors } = require("./config/cors.js");
+const { corsConfig } = require("./config/cors.js");
 
 const { rateLimiter } = require("./config/rateLimiter.js");
 
@@ -27,13 +27,13 @@ const app = express();
 
 
 
+app.use(corsConfig);
 
 app.use(rateLimiter);
 
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 
 
 app.use("/api/auth", route);
