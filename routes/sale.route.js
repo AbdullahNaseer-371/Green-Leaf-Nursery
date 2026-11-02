@@ -16,7 +16,7 @@ const {
 const {
     authenticate,
     authorize
-} = require("../middleware/authmiddleware.js");
+} = require("../middleware/authMiddleware.js");
 
 
 
