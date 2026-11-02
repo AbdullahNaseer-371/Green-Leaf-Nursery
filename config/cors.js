@@ -2,7 +2,8 @@ const cors = require("cors");
 
 const allowedOrigins = [
     "http://localhost:5173",
-    "https://frontend-eta-lovat-44.vercel.app",
+    "https://frontend-eta-lovat-44.vercel.app"
+
 ];
 
 const corsConfig = cors({
