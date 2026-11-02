@@ -24,10 +24,10 @@ const port = ENV.PORT;
 
 const app = express();
 
-
-
-
 app.use(corsConfig);
+
+
+
 
 app.use(rateLimiter);
 
