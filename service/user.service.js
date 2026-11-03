@@ -112,26 +112,26 @@ const registerUser = async (userData) => {
 
 
 
-const loginUser = async (email, password) => {
+const loginUser = async (userName, password) => {
 
-    if (!email || !password) {
+    if (!userName || !password) {
         throw new ApiError(
             400,
-            "Email and password are required."
+            "userName and password are required."
         );
     }
 
 
     // Find user
     const user = await User.findOne({
-        email: email.trim()
+        userName: userName.trim()
     });
 
 
     if (!user) {
         throw new ApiError(
             401,
-            "Invalid email or password."
+            "Invalid userName or password."
         );
     }
 
@@ -175,7 +175,7 @@ const loginUser = async (email, password) => {
     return {
         user: {
             _id: user._id,
-            email: user.email,
+            userName: user.userName,
             role: user.role
         },
 
