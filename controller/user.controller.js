@@ -27,35 +27,28 @@ const registerUser = asyncHandler(async (req, res) => {
 
 
 
-const loginUser = asyncHandler(async (req, res) => {
 
-    const {
+const loginUser = asyncHandler(async (req, res) => {
+    const { userName, password } = req.body;
+
+    const result = await userService.loginUser(
         userName,
         password
-    } = req.body;
+    );
 
-
-    const result =
-        await userService.loginUser(
-            userName,
-            password
-        );
-
-
-    return res
-        .status(200)
-        .json(
-            new ApiResponse(
-                200,
-                {
-                    user: result.user,
-                    accessToken: result.accessToken,
-                    refreshToken: result.refreshToken
-                },
-                result.message
-            )
-        );
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            result.message,
+            {
+                user: result.user,
+                accessToken: result.accessToken,
+                refreshToken: result.refreshToken
+            }
+        )
+    );
 });
+
 
 
 
