@@ -1,6 +1,6 @@
 const express = require("express");
 const plantRouter = express.Router();
-
+const upload = require("../middleware/uploadsMiddlware.js");
 const {
     createPlant,
     getPlants,
@@ -19,6 +19,7 @@ plantRouter.post(
     "/",
     authenticate,
     authorize("create"),
+    upload.single("image"),
     createPlant
 );
 

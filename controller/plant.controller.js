@@ -3,10 +3,18 @@ const { asyncHandler, ApiResponse } = require("../utils/asyncHandler.js");
 
 
 const createPlant = asyncHandler(async (req, res) => {
-    const result = await plantService.createPlant(req.body);
+    const result = await plantService.createPlant(
+        req.body,
+        req.file
+    );
 
-    return res
-        .status(201).json(new ApiResponse(201, result.plant, result.message));
+    return res.status(201).json(
+        new ApiResponse(
+            201,
+            result.plant,
+            result.message
+        )
+    );
 });
 
 const getPlants = asyncHandler(async (req, res) => {

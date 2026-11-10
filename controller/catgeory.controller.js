@@ -8,62 +8,50 @@ const {
 
 // CREATE CATEGORY
 const createCategory = asyncHandler(async (req, res) => {
-
     const result = await categoryService.createCategory(
-        req.body
+        req.body,
+        req.file
     );
 
-
-    return res
-        .status(201)
-        .json(
-            new ApiResponse(
-                201,
-                result.category,
-                result.message
-            )
-        );
+    return res.status(201).json(
+        new ApiResponse(
+            201,
+            result.category,
+            result.message
+        )
+    );
 });
 
 
 // GET ALL CATEGORIES
 const getCategories = asyncHandler(async (req, res) => {
-
-    const {
-        search,
-        explain
-    } = req.query;
-
+    const { search, explain } = req.query;
 
     const result = await categoryService.getCategories({
         search,
         explain: explain === "true"
     });
 
-
-    // Explain query
     if (result.plan) {
-        return res
-            .status(200)
-            .json(
-                new ApiResponse(
-                    200,
-                    result.plan,
-                    result.message
-                )
-            );
-    }
-
-
-    return res
-        .status(200)
-        .json(
+        return res.status(200).json(
             new ApiResponse(
                 200,
-                result.categories,
+                result.plan,
                 result.message
             )
         );
+    }
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {
+                categories: result.categories,
+                total: result.categories.length
+            },
+            result.message
+        )
+    );
 });
 
 

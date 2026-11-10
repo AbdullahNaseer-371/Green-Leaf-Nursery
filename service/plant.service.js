@@ -3,29 +3,100 @@ const { API_MESSAGE } = require("../constants/apiMessage.Constant.js");
 
 const { ApiError } = require("../utils/asyncHandler.js");
 const { isValidObjectId } = require("mongoose");
+const uploadToCloudinary = require("../utils/cloudinaryUploads");
+const cloudinary = require("../config/cloudinary.js");
 
-const createPlant = async (plantData) => {
-    const { sku, category } = plantData;
 
-    
-    if (category && !isValidObjectId(category)) {
-        throw new ApiError(400, "Invalid Category ID format.");
+
+const Category = require("../model/category.model.js");
+
+
+// Create Plant
+const createPlant = async (plantData, file) => {
+    const { name, sku, category } = plantData;
+
+    // Validate plant name
+    if (!name || !name.trim()) {
+        throw new ApiError(400, "Plant name is required.");
     }
 
+    // Validate category ID
+    if (!category || !isValidObjectId(category)) {
+        throw new ApiError(400, "Valid Category ID is required.");
+    }
+
+    // Check whether category exists
+    const existingCategory = await Category.findById(category);
+
+    if (!existingCategory) {
+        throw new ApiError(404, "Category not found.");
+    }
+
+    // Check duplicate plant name
+    const existingName = await Plant.findOne({
+        name: name.trim()
+    });
+
+    if (existingName) {
+        throw new ApiError(409, "Plant with this name already exists.");
+    }
+
+    // Check manually provided SKU
     if (sku) {
-        const existingPlant = await Plant.findOne({ sku });
-        if (existingPlant) {
-            throw new ApiError(409, "Plant item with this SKU code already exists.");
+        const existingSku = await Plant.findOne({ sku });
+
+        if (existingSku) {
+            throw new ApiError(
+                409,
+                "Plant item with this SKU already exists."
+            );
         }
     }
 
-    const plant = await Plant.create(plantData);
-
-    return {
-        plant,
-        message: API_MESSAGE.CREATED
+    let image = {
+        public_id: null,
+        url: null
     };
+
+    // Upload image to Cloudinary
+    if (file) {
+        const uploadedImage = await uploadToCloudinary(
+            file.buffer,
+            "GREENLEAF/PLANTS"
+        );
+
+        image = {
+            public_id: uploadedImage.publicId,
+            url: uploadedImage.url
+        };
+    }
+
+    try {
+        const plant = await Plant.create({
+            ...plantData,
+            name: name.trim(),
+            category,
+            image
+        });
+
+        return {
+            plant,
+            message: API_MESSAGE.CREATED
+        };
+
+    } catch (error) {
+
+        // Delete uploaded image if MongoDB creation fails
+        if (image.public_id) {
+            await cloudinary.uploader.destroy(image.public_id);
+        }
+
+        throw error;
+    }
 };
+
+
+
 
 const getPlants = async ({ category, status, page = 1, limit = 10, explain = false } = {}) => {
     let filter = {};

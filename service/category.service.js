@@ -1,12 +1,13 @@
 const Category = require("../model/category.model.js");
 const { API_MESSAGE } = require("../constants/apiMessage.Constant.js");
 const { ApiError } = require("../utils/asyncHandler.js");
-
+const uploadToCloudinary = require("../utils/cloudinaryUploads");
+const cloudinary = require("../config/cloudinary.js");
 const { isValidObjectId } = require("mongoose");
 
 
 
-const createCategory = async (categoryData) => {
+const createCategory = async (categoryData, file) => {
     const { name, sku } = categoryData;
 
     if (!name || !name.trim()) {
@@ -15,7 +16,6 @@ const createCategory = async (categoryData) => {
             "Category name is required."
         );
     }
-
 
     // Check duplicate category name
     const existingCategory = await Category.findOne({
@@ -29,7 +29,6 @@ const createCategory = async (categoryData) => {
         );
     }
 
-
     // Check manually provided SKU
     if (sku) {
         const existingSku = await Category.findOne({ sku });
@@ -42,13 +41,42 @@ const createCategory = async (categoryData) => {
         }
     }
 
-
-    const category = await Category.create(categoryData);
-
-    return {
-        category,
-        message: API_MESSAGE.CREATED
+    let image = {
+        url: "",
+        publicId: ""
     };
+
+    // Upload image to Cloudinary
+    if (file) {
+        image = await uploadToCloudinary(
+            file.buffer,
+            "GREENLEAF/CATEGORIES"
+        );
+    }
+
+    try {
+        const category = await Category.create({
+            ...categoryData,
+            name: name.trim(),
+            image
+        });
+
+        return {
+            category,
+            message: API_MESSAGE.CREATED
+        };
+
+    } catch (error) {
+
+        // Delete uploaded image if MongoDB creation fails
+        if (image.publicId) {
+            await cloudinary.uploader.destroy(
+                image.publicId
+            );
+        }
+
+        throw error;
+    }
 };
 
 

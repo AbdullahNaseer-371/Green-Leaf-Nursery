@@ -1,5 +1,5 @@
 const express = require("express");
-
+const upload = require("../middleware/uploadsMiddlware.js");
 const catRouter = express.Router();
 
 
@@ -23,6 +23,7 @@ catRouter.post(
     "/",
     authenticate,
     authorize("create"),
+    upload.single("image"),
     createCategory
 );
 

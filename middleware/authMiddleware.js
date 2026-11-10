@@ -3,7 +3,7 @@ const { verifyToken } = require('../utils/verifyToken.js');
 const {  generateRefreshToken } = require('../utils/generateRefreshToken.js');
 const {  generateAccessToken } = require('../utils/generateToken.js');
 const { ENV } = require('../config/env');
-const { User } = require('../model/user.model.js');
+const User  = require('../model/user.model.js');
 
 
 const ROLES_HIERARCHY = {
@@ -23,29 +23,46 @@ const isTokenActive = (activeTokens, lookupToken) => {
 };
 
 
-const authenticate = asyncHandler(async (req, res, next) => {
-    const headerKey = ENV.JWT_TOKEN_HEADER.toLowerCase();
-    const tokenHeader = req.headers[headerKey];
-    const token = tokenHeader && tokenHeader.split(' ')[1]; 
 
-    if (!token) {
-        throw new ApiError(401, 'Access token required to view this resource');
+
+const authenticate = asyncHandler(async (req, res, next) => {
+    const headerName = (ENV.JWT_TOKEN_HEADER || "Authorization").toLowerCase();
+    const authHeader = req.headers[headerName];
+
+    if (!authHeader) {
+        throw new ApiError(401, "Authorization header is missing");
     }
+
+    const [scheme, token] = authHeader.split(" ");
+
+    if (scheme !== "Bearer" || !token) {
+        throw new ApiError(
+            401,
+            "Invalid authorization format. Use Bearer <accessToken>"
+        );
+    }
+
+    let decoded;
 
     try {
-        const decoded = verifyToken(token);
-        const user = await User.findById(decoded.id);
+        decoded = verifyToken(token);
+    } catch (error) {
+        console.error("JWT verification failed:", error.message);
 
-        if (!user) {
-            throw new ApiError(401, 'User account no longer exists in system');
-        }
-
-        req.user = user; 
-        next();
-    } catch (err) {
-        if (err instanceof ApiError) throw err;
-        throw new ApiError(403, 'Access token is invalid or has expired');
+        throw new ApiError(
+            403,
+            "Access token is invalid or has expired"
+        );
     }
+
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+        throw new ApiError(401, "User account no longer exists");
+    }
+
+    req.user = user;
+    next();
 });
 
 

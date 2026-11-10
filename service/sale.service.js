@@ -1,5 +1,9 @@
+
 const Sale = require("../model/sale.model.js");
 const Plant = require("../model/plant.model.js");
+
+
+const isValidObjectId  = "mongoose";
 
 const {
     API_MESSAGE
@@ -9,49 +13,32 @@ const {
     ApiError
 } = require("../utils/asyncHandler.js");
 
-const {
-    isValidObjectId
-} = require("mongoose");
 
+// ======================================================
+// CREATE SALE
+// ======================================================
 
 const createSale = async (saleData, userId) => {
 
-    const {
-        plantId,
-        quantity
-    } = saleData;
+    const { plantId, quantity } = saleData;
 
-
-    // Validate Plant ID
     if (!isValidObjectId(plantId)) {
+        throw new ApiError(400, "Invalid plant ID.");
+    }
+
+    if (!Number.isInteger(Number(quantity)) || Number(quantity) <= 0) {
         throw new ApiError(
             400,
-            "Invalid plant ID."
+            "Quantity must be a positive integer."
         );
     }
 
-
-    // Validate quantity
-    if (!quantity || quantity <= 0) {
-        throw new ApiError(
-            400,
-            "Quantity must be greater than 0."
-        );
-    }
-
-
-    // Find plant
     const plant = await Plant.findById(plantId);
 
     if (!plant) {
-        throw new ApiError(
-            404,
-            "Plant not found."
-        );
+        throw new ApiError(404, "Plant not found.");
     }
 
-
-    // Check stock
     if (plant.stock < quantity) {
         throw new ApiError(
             400,
@@ -59,12 +46,8 @@ const createSale = async (saleData, userId) => {
         );
     }
 
+    const totalPrice = plant.price * quantity;
 
-    // Calculate total price
-    const totalPrice = plant.unitPrice * quantity;
-
-
-    // Create sale
     const sale = await Sale.create({
         plantId,
         quantity,
@@ -72,12 +55,8 @@ const createSale = async (saleData, userId) => {
         soldBy: userId
     });
 
-
-    // Reduce stock
     plant.stock -= quantity;
-
     await plant.save();
-
 
     return {
         sale,
@@ -95,80 +74,100 @@ const getSales = async ({
     soldBy,
     startDate,
     endDate,
+    page = 1,
+    limit = 10,
     explain = false
 } = {}) => {
 
-    const filter = {};
+    const match = {};
 
-
-    // Filter by plant
+    // Plant filter
     if (plantId) {
-
         if (!isValidObjectId(plantId)) {
-            throw new ApiError(
-                400,
-                "Invalid plant ID."
-            );
+            throw new ApiError(400, "Invalid plant ID.");
         }
 
-        filter.plantId = plantId;
+        match.plantId = new mongoose.Types.ObjectId(plantId);
     }
 
-
-    // Filter by seller
+    // Seller filter
     if (soldBy) {
-
         if (!isValidObjectId(soldBy)) {
-            throw new ApiError(
-                400,
-                "Invalid user ID."
-            );
+            throw new ApiError(400, "Invalid seller ID.");
         }
 
-        filter.soldBy = soldBy;
+        match.soldBy = new mongoose.Types.ObjectId(soldBy);
     }
 
-
-    // Date filtering
+    // Date filter
     if (startDate || endDate) {
 
-        filter.saleDate = {};
+        match.createdAt = {};
 
         if (startDate) {
-            filter.saleDate.$gte = new Date(startDate);
+            const start = new Date(startDate);
+
+            if (Number.isNaN(start.getTime())) {
+                throw new ApiError(400, "Invalid start date.");
+            }
+
+            match.createdAt.$gte = start;
         }
 
         if (endDate) {
-            filter.saleDate.$lte = new Date(endDate);
+            const end = new Date(endDate);
+
+            if (Number.isNaN(end.getTime())) {
+                throw new ApiError(400, "Invalid end date.");
+            }
+
+            end.setHours(23, 59, 59, 999);
+            match.createdAt.$lte = end;
         }
     }
 
-
-    // Query execution plan
+    // Explain query
     if (explain) {
 
-        const plan = await Sale
-            .find(filter)
-            .sort({ saleDate: -1 })
+        const plan = await Sale.find(match)
             .explain("executionStats");
 
         return {
             plan,
-            message: "Query execution plan retrieved successfully."
+            message: "Sales execution plan retrieved successfully."
         };
     }
 
+    // Pagination validation
+    page = Math.max(1, Number(page) || 1);
+    limit = Math.min(100, Math.max(1, Number(limit) || 10));
 
-    // Get all sales
-    const sales = await Sale
-        .find(filter)
-        .populate("plantId", "name sku unitPrice stock")
-        .populate("soldBy", "name email")
-        .sort({ saleDate: -1 });
+    const skip = (page - 1) * limit;
 
+    // Fetch sales
+    const [sales, total] = await Promise.all([
+
+        Sale.find(match)
+            .populate("plantId", "userName sku price stock")
+            .populate("soldBy", "userName email")
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit),
+
+        Sale.countDocuments(match)
+
+    ]);
 
     return {
         sales,
+
+        pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit)
+        },
+
         message: API_MESSAGE.FETCHED
     };
 };
@@ -181,32 +180,16 @@ const getSales = async ({
 const getSaleById = async (saleId) => {
 
     if (!isValidObjectId(saleId)) {
-        throw new ApiError(
-            400,
-            "Invalid sale ID."
-        );
+        throw new ApiError(400, "Invalid sale ID.");
     }
 
-
-    const sale = await Sale
-        .findById(saleId)
-        .populate(
-            "plantId",
-            "name sku unitPrice stock"
-        )
-        .populate(
-            "soldBy",
-            "name email"
-        );
-
+    const sale = await Sale.findById(saleId)
+        .populate("plantId", "name sku price stock")
+        .populate("soldBy", "name email");
 
     if (!sale) {
-        throw new ApiError(
-            404,
-            API_MESSAGE.NOT_FOUND
-        );
+        throw new ApiError(404, API_MESSAGE.NOT_FOUND);
     }
-
 
     return {
         sale,
@@ -222,59 +205,42 @@ const getSaleById = async (saleId) => {
 const updateSale = async (saleId, updateData) => {
 
     if (!isValidObjectId(saleId)) {
-        throw new ApiError(
-            400,
-            "Invalid sale ID."
-        );
+        throw new ApiError(400, "Invalid sale ID.");
     }
 
+    // Prevent changing protected fields
+    updateData = { ...updateData };
 
-    // Sale plant and seller should not be changed
     delete updateData.plantId;
     delete updateData.soldBy;
     delete updateData.totalPrice;
 
-
     const existingSale = await Sale.findById(saleId);
 
     if (!existingSale) {
-        throw new ApiError(
-            404,
-            API_MESSAGE.NOT_FOUND
-        );
+        throw new ApiError(404, API_MESSAGE.NOT_FOUND);
     }
 
-
-    // If quantity changes,
-    // recalculate stock and total price.
     if (updateData.quantity !== undefined) {
 
-        if (updateData.quantity <= 0) {
+        const newQuantity = Number(updateData.quantity);
+
+        if (!Number.isInteger(newQuantity) || newQuantity <= 0) {
             throw new ApiError(
                 400,
-                "Quantity must be greater than 0."
+                "Quantity must be a positive integer."
             );
         }
 
-
-        const plant = await Plant.findById(
-            existingSale.plantId
-        );
-
+        const plant = await Plant.findById(existingSale.plantId);
 
         if (!plant) {
-            throw new ApiError(
-                404,
-                "Plant not found."
-            );
+            throw new ApiError(404, "Plant not found.");
         }
 
-
         const quantityDifference =
-            updateData.quantity - existingSale.quantity;
+            newQuantity - existingSale.quantity;
 
-
-        // Increasing sale quantity
         if (quantityDifference > 0) {
 
             if (plant.stock < quantityDifference) {
@@ -285,26 +251,17 @@ const updateSale = async (saleId, updateData) => {
             }
 
             plant.stock -= quantityDifference;
+
+        } else if (quantityDifference < 0) {
+
+            plant.stock += Math.abs(quantityDifference);
         }
-
-
-        // Decreasing sale quantity
-        else if (quantityDifference < 0) {
-
-            plant.stock += Math.abs(
-                quantityDifference
-            );
-        }
-
 
         await plant.save();
 
-
-        // Recalculate total price
         updateData.totalPrice =
-            plant.unitPrice * updateData.quantity;
+            plant.price * newQuantity;
     }
-
 
     const sale = await Sale.findByIdAndUpdate(
         saleId,
@@ -314,15 +271,8 @@ const updateSale = async (saleId, updateData) => {
             runValidators: true
         }
     )
-        .populate(
-            "plantId",
-            "name sku unitPrice stock"
-        )
-        .populate(
-            "soldBy",
-            "name email"
-        );
-
+        .populate("plantId", "name sku price stock")
+        .populate("soldBy", "name email");
 
     return {
         sale,
@@ -338,37 +288,24 @@ const updateSale = async (saleId, updateData) => {
 const deleteSale = async (saleId) => {
 
     if (!isValidObjectId(saleId)) {
-        throw new ApiError(
-            400,
-            "Invalid sale ID."
-        );
+        throw new ApiError(400, "Invalid sale ID.");
     }
-
 
     const sale = await Sale.findById(saleId);
 
     if (!sale) {
-        throw new ApiError(
-            404,
-            API_MESSAGE.NOT_FOUND
-        );
+        throw new ApiError(404, API_MESSAGE.NOT_FOUND);
     }
 
-
     // Restore plant stock
-    const plant = await Plant.findById(
-        sale.plantId
-    );
-
+    const plant = await Plant.findById(sale.plantId);
 
     if (plant) {
         plant.stock += sale.quantity;
         await plant.save();
     }
 
-
     await Sale.findByIdAndDelete(saleId);
-
 
     return {
         message: API_MESSAGE.DELETED
@@ -389,71 +326,44 @@ const getSalesReport = async ({
 
     const match = {};
 
-
     // Date filter
     if (startDate || endDate) {
 
-        match.saleDate = {};
+        match.createdAt = {};
 
         if (startDate) {
-            match.saleDate.$gte = new Date(startDate);
+            const start = new Date(startDate);
+
+            if (Number.isNaN(start.getTime())) {
+                throw new ApiError(400, "Invalid start date.");
+            }
+
+            match.createdAt.$gte = start;
         }
 
         if (endDate) {
-            match.saleDate.$lte = new Date(endDate);
+            const end = new Date(endDate);
+
+            if (Number.isNaN(end.getTime())) {
+                throw new ApiError(400, "Invalid end date.");
+            }
+
+            end.setHours(23, 59, 59, 999);
+            match.createdAt.$lte = end;
         }
     }
-
 
     // Plant filter
     if (plantId) {
 
         if (!isValidObjectId(plantId)) {
-            throw new ApiError(
-                400,
-                "Invalid plant ID."
-            );
+            throw new ApiError(400, "Invalid plant ID.");
         }
 
-        match.plantId = new mongoose.Types.ObjectId(
-            plantId
-        );
+        match.plantId = new mongoose.Types.ObjectId(plantId);
     }
 
-
-    // Explain
-    if (explain) {
-
-        const plan = await Sale.aggregate([
-            {
-                $match: match
-            },
-            {
-                $group: {
-                    _id: null,
-                    totalSales: {
-                        $sum: 1
-                    },
-                    totalQuantity: {
-                        $sum: "$quantity"
-                    },
-                    totalRevenue: {
-                        $sum: "$totalPrice"
-                    }
-                }
-            }
-        ]).explain("executionStats");
-
-
-        return {
-            plan,
-            message:
-                "Sales report execution plan retrieved successfully."
-        };
-    }
-
-
-    const report = await Sale.aggregate([
+    const pipeline = [
 
         {
             $match: match
@@ -485,8 +395,22 @@ const getSalesReport = async ({
                 totalRevenue: 1
             }
         }
-    ]);
 
+    ];
+
+    // Explain query
+    if (explain) {
+
+        const plan = await Sale.aggregate(pipeline)
+            .explain("executionStats");
+
+        return {
+            plan,
+            message: "Sales report execution plan retrieved successfully."
+        };
+    }
+
+    const report = await Sale.aggregate(pipeline);
 
     return {
         report: report[0] || {

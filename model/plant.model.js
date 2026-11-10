@@ -3,11 +3,21 @@ const slugify=require("slugify");
 
 const plantSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true, unique: true },
+    image: {
+        public_id: {
+            type: String,
+            default: null
+        },
+        url: {
+            type: String,
+            default: null
+        }
+    },
     sku: { type: String, unique: true },
     category:{type:mongoose.Schema.ObjectId,ref:"Category",required:true,index:true},
     stock: { type: Number,required:true,default:0},
     price:{type:Number,required:true},
-    status:{type:String,enum:[`Available`,`Out of stock`,`Reserved`],default:`Avialble`,index:true},
+    status: { type: String, enum: [`Available`, `Out of stock`, `Reserved`], default:`Available`,index:true},
 }, { timestamps: true })
 
 plantSchema.index({category:1,status:1,stock:-1})
