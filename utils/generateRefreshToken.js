@@ -6,10 +6,11 @@ const { ENV } = require("../config/env");
 const generateRefreshToken = (user) => {
     return jwt.sign(
         { id: user._id },
-        process.env.REFRESH_TOKEN_SECRET,
+        ENV.JWT_REFRESH_SECRET,
         {
-            expiresIn: process.env.REFRESH_TOKEN_EXPIRE,
+            expiresIn: ENV.JWT_REFRESH_EXPIRES_IN
+
         }
     );
 }
-module.exports={generateRefreshToken}
+module.exports = { generateRefreshToken }
