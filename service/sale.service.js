@@ -3,7 +3,7 @@ const Sale = require("../model/sale.model.js");
 const Plant = require("../model/plant.model.js");
 
 
-const isValidObjectId  = "mongoose";
+const {isValidObjectId } = require("mongoose");
 
 const {
     API_MESSAGE
